@@ -29,7 +29,7 @@ const registerUser = asyncHandler(async (req, res) => {
       return next(new ApiError(409, "User with email already exists"));
     }
   } catch (err) {
-    return next(err);
+    return next(new ApiError);
   }
 
   const { name, email, password } = req.body;
@@ -48,7 +48,10 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   // Token
-  const access_token = JwtService.sign({ _id: createdUser._id, role: createdUser.role });
+  const access_token = JwtService.sign({
+    _id: createdUser._id,
+    role: createdUser.role,
+  });
   const refresh_token = JwtService.sign(
     { _id: createdUser._id, role: createdUser.role },
     "1y",
@@ -62,7 +65,13 @@ const registerUser = asyncHandler(async (req, res) => {
 
   return res
     .status(201)
-    .json(new ApiResponse(200, createdUser, "User registered Successfully", access_token, refresh_token));
+    .json(
+      new ApiResponse(
+        200,
+        {"user" : createdUser, access_token, refresh_token },
+        "User registered Successfully"
+      )
+    );
 });
 
 const loginUser = asyncHandler(async (req, res, next) => {
@@ -112,4 +121,36 @@ const loginUser = asyncHandler(async (req, res, next) => {
   }
 });
 
-export { registerUser, loginUser };
+const getCurrentLoginUser = asyncHandler(async (req, res, next) => {
+  try {
+    const user = await User.findOne({ _id: req.user._id }).select(
+      "-password -updatedAt -__v"
+    );
+    if (!user) {
+      return next(new ApiError(404, "User not found !!"));
+    }
+    res.json(user);
+  } catch (err) {
+    return next(new ApiError(err));
+  }
+});
+
+const logoutUser = asyncHandler(async (req, res, next) => {
+  // Assuming you have a user authenticated in your middleware and stored in req.user
+  const userId = req.user._id;
+
+  try {
+    // Invalidate the refresh token by removing it from the database
+    await User.findByIdAndUpdate(userId, { refreshToken: null });
+
+    // Respond with a success message
+    res
+      .status(200)
+      .json(new ApiResponse(200, { message: "Logout successful" }));
+  } catch (err) {
+    // Handle errors, and pass them to the error-handling middleware
+    return next(new ApiError(err));
+  }
+});
+
+export { registerUser, loginUser, logoutUser, getCurrentLoginUser };
