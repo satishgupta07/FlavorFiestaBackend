@@ -1,6 +1,6 @@
 import Joi from "joi";
-import { Menu } from "../models/menu.model.js";
 import { ApiError } from "../utils/ApiError.js";
+import { Product } from "../models/product.model.js";
 
 const productController = {
   async store(req, res, next) {
@@ -20,7 +20,7 @@ const productController = {
 
     const { name, price, size, image } = req.body;
 
-    const product = new Menu({
+    const product = new Product({
       name,
       price,
       size,
@@ -44,7 +44,7 @@ const productController = {
     let documents;
     // pagination mongoose-pagination
     try {
-      documents = await Menu.find().select("-updatedAt -__v").sort({ _id: -1 });
+      documents = await Product.find().select("-updatedAt -__v").sort({ _id: -1 });
     } catch (error) {
       return next(new ApiError(500, error));
     }
@@ -55,7 +55,7 @@ const productController = {
   async show(req, res, next) {
     let document;
     try {
-      document = await Menu.findOne({ _id: req.params.id }).select(
+      document = await Product.findOne({ _id: req.params.id }).select(
         "-updatedAt -__v"
       );
     } catch (error) {
