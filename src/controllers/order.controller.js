@@ -1,62 +1,43 @@
-import moment from "moment";
-import { Order } from "../models/order.model";
+import { Order } from "../models/order.model.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import { ApiError } from "../utils/ApiError.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import Joi from "joi";
 
-function orderContoller() {
-  return {
-    store(req, res) {
-      //Validate request
-      const orderSchema = Joi.object({
-        phone: Joi.string().min(10).required(),
-        address: Joi.string().required(),
-      });
+const createOrder = asyncHandler(async (req, res, next) => {
+  const { items, phone, address } = req.body;
 
-      const { error } = orderSchema.validate(req.body);
-      if (error) {
-        return next(new ApiError(400, error));
-      }
+  const orderSchema = Joi.object({
+    items: Joi.array().items().default([]),
+    phone: Joi.string().min(10).required(),
+    address: Joi.string().required(),
+  });
 
-      const order = new Order({
-        customerId: req.user._id,
-        items: req.session.cart.items,
-        phone,
-        address,
-      });
-      order
-        .save()
-        .then((result) => {
-          populate(result, { path: "customerId" }, (err, placedOrder) => {
-            req.flash("success", "Order placed successfully");
-            delete req.session.cart;
-            // Emit
-            const eventEmitter = req.app.get("eventEmitter");
-            eventEmitter.emit("orderPlaced", placedOrder);
-            return res.redirect("/customer/orders");
-          });
-        })
-        .catch((err) => {
-          return res.status(500).json({ message: "Something went wrong" });
-        });
-    },
+  const { error } = orderSchema.validate(req.body);
+  if (error) {
+    return next(new ApiError(400, error));
+  }
 
-    async index(req, res) {
-      const orders = await find({ customerId: req.user._id }, null, {
-        sort: { createdAt: -1 },
-      }); //sort the orders in descending order
-      res.header(
-        "Cache-Control",
-        "no-cache, private, no-store, must-revalidate, max-stale=0, post-check=0, pre-check=0"
-      );
-      res.render("customer/orders", { orders: orders, moment: moment });
-    },
-    async show(req, res) {
-      const order = await findById(req.params.id);
-      // Authorize user
-      if (req.user._id.toString() === order.customerId.toString()) {
-        return res.render("customer/singleOrder", { order });
-      }
-      return res.redirect("/");
-    },
-  };
-}
+  const order = new Order({
+    customerId: req.user._id,
+    items,
+    phone,
+    address,
+  });
 
-export default orderContoller;
+  await order.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Order placed successfully"));
+});
+
+export const getOrdersOfUser = async (req, res) => {
+  const orders = await Order.find({ customerId: req.user._id });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, orders, "Orders fetched successfully"));
+};
+
+export { createOrder };

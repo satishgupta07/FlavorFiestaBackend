@@ -7,21 +7,31 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 export const getCart = async (userId) => {
   const cart = await Cart.findOne({ owner: userId });
 
-  // Use Promise.all to wait for all the promises to resolve
-  const cartTotal = await Promise.all(
+  const cartDetails = await Promise.all(
     cart.items.map(async (item) => {
-      // Assuming each item in the cart has a productId and price property
-      const product = await Product.findOne({ _id: item.productId }); // Replace 'Product' with your actual model
-      const itemTotal = product.price * item.quantity; // Assuming each item has a quantity property
-      return itemTotal;
+      const product = await Product.findOne({ _id: item.productId });
+      const itemTotal = product.price * item.quantity;
+
+      // Include full product details in the item
+      const itemWithDetails = {
+        productId: product._id,
+        name: product.name,
+        image: product.image,
+        price: product.price,
+        size: product.size,
+        quantity: item.quantity,
+        total: itemTotal,
+      };
+
+      return itemWithDetails;
     })
-  ).then((itemTotals) =>
-    itemTotals.reduce((total, itemTotal) => total + itemTotal, 0)
   );
+
+  const cartTotal = cartDetails.reduce((total, item) => total + item.total, 0);
 
   return {
     _id: cart._id,
-    items: cart.items,
+    items: cartDetails,
     cartTotal: cartTotal,
   };
 };
@@ -36,6 +46,7 @@ const getUserCart = asyncHandler(async (req, res) => {
 
 const addItemOrUpdateItemQuantity = asyncHandler(async (req, res) => {
   const { productId } = req.params;
+
   const { quantity = 1 } = req.body;
 
   // fetch user cart
