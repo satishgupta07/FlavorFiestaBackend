@@ -40,4 +40,13 @@ export const getOrdersOfUser = async (req, res) => {
     .json(new ApiResponse(200, orders, "Orders fetched successfully"));
 };
 
+export const getOrdersById = async (req, res) => {
+  const { orderId } = req.params;
+  const order = await Order.findById({ _id : orderId });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, order, "Order fetched successfully"));
+};
+
 export { createOrder };
