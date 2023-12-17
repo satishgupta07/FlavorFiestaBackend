@@ -24,6 +24,7 @@ const orderSchema = new Schema(
       ],
       default: [],
     },
+    totalAmount : {type: Number, required: true},
     phone: { type: String, required: true },
     address: { type: String, required: true },
     paymentType: { type: String, default: "COD" },
