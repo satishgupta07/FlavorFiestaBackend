@@ -5,6 +5,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import Joi from "joi";
 import { Product } from "../models/product.model.js";
 import Stripe from "stripe";
+import { Cart } from "../models/cart.model.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -62,6 +63,18 @@ export const createOrder = asyncHandler(async (req, res, next) => {
     order.paymentStatus = true;
     order.paymentType = "Card";
     await order.save();
+
+    // Clear the cart for the user
+    await Cart.findOneAndUpdate(
+      { owner: req.user._id },
+      {
+        $set: {
+          items: [],
+          coupon: null,
+        },
+      },
+      { new: true }
+    );
   }
 
   return res
@@ -76,7 +89,9 @@ export const createOrder = asyncHandler(async (req, res, next) => {
 });
 
 export const getOrdersOfUser = asyncHandler(async (req, res) => {
-  const orders = await Order.find({ customerId: req.user._id });
+  const orders = await Order.find({ customerId: req.user._id }).sort({
+    createdAt: -1,
+  });
 
   return res
     .status(200)
@@ -121,12 +136,11 @@ export const getOrdersById = asyncHandler(async (req, res) => {
 
 export const getAllOrders = asyncHandler(async (req, res) => {
   try {
-    const orders = await Order.find({});
+    const orders = await Order.find({}).sort({ createdAt: -1 });
     return res
       .status(200)
       .json(new ApiResponse(200, orders, "Orders fetched successfully"));
   } catch (error) {
-    console.error("Error fetching orders:", error);
     return res
       .status(500)
       .json(new ApiResponse(500, {}, "Internal Server Error"));
@@ -152,7 +166,6 @@ export const changeOrderStatus = asyncHandler(async (req, res) => {
       .status(200)
       .json(new ApiResponse(200, order, "Order status updated successfully"));
   } catch (error) {
-    console.error("Error fetching order:", error);
     return res
       .status(500)
       .json(new ApiResponse(500, error, "Internal Server Error"));

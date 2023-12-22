@@ -64,7 +64,6 @@ const addItemOrUpdateItemQuantity = asyncHandler(async (req, res) => {
 
   // See if product that user is adding exist in the db
   const product = await Product.findById(productId);
-  console.log(product);
 
   if (!product) {
     throw new ApiError(404, "Product does not exist");

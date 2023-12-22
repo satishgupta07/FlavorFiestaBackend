@@ -31,7 +31,6 @@ io.on('connection', (socket) => {
   console.log('Socket is active to be connected')
 
   socket.on('changeStatus', (payload) => {
-    console.log("What is payload", payload);
     io.emit('changeStatus', payload);
   })
 });
