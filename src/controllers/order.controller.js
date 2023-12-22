@@ -43,8 +43,8 @@ export const createOrder = asyncHandler(async (req, res, next) => {
     payment_method_types: ["card"],
     line_items: lineItems,
     mode: "payment",
-    success_url: "http://localhost:5173/customer/orders",
-    cancel_url: "http://localhost:5173/cart",
+    success_url: `${process.env.CLIENT_URL}/customer/orders`,
+    cancel_url: `${process.env.CLIENT_URL}/cart`,
   });
 
   if (!session) {
