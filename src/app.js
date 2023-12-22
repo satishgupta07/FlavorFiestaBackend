@@ -28,7 +28,6 @@ const io = new Server(httpServer, {
 });
 
 io.on('connection', (socket) => {
-  console.log('What is socket', socket);
   console.log('Socket is active to be connected')
 
   socket.on('changeStatus', (payload) => {

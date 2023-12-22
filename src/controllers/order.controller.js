@@ -4,9 +4,11 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import Joi from "joi";
 import { Product } from "../models/product.model.js";
-import { User } from "../models/user.model.js";
+import Stripe from "stripe";
 
-const createOrder = asyncHandler(async (req, res, next) => {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+export const createOrder = asyncHandler(async (req, res, next) => {
   const { items, totalAmount, phone, address } = req.body;
 
   const orderSchema = Joi.object({
@@ -21,6 +23,33 @@ const createOrder = asyncHandler(async (req, res, next) => {
     return next(new ApiError(400, error));
   }
 
+  const exchangeRate = 0.014; // Replace with the current exchange rate
+
+  const lineItems = items.map((product) => ({
+    price_data: {
+      currency: "usd",
+      product_data: {
+        name: product.name,
+        images: [product.image],
+      },
+      unit_amount: Math.round(product.price * exchangeRate * 100), // Convert price to USD
+    },
+    quantity: product.quantity,
+  }));
+
+  // checkout api
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ["card"],
+    line_items: lineItems,
+    mode: "payment",
+    success_url: "http://localhost:5173/customer/orders",
+    cancel_url: "http://localhost:5173/cart",
+  });
+
+  if (!session) {
+    return next(new ApiError(400, session.error));
+  }
+
   const order = new Order({
     customerId: req.user._id,
     items,
@@ -29,11 +58,21 @@ const createOrder = asyncHandler(async (req, res, next) => {
     address,
   });
 
-  await order.save();
+  if (session.id) {
+    order.paymentStatus = true;
+    order.paymentType = "Card";
+    await order.save();
+  }
 
   return res
     .status(200)
-    .json(new ApiResponse(200, {}, "Order placed successfully"));
+    .json(
+      new ApiResponse(
+        200,
+        { sessionId: session.id },
+        "Order placed successfully"
+      )
+    );
 });
 
 export const getOrdersOfUser = asyncHandler(async (req, res) => {
@@ -72,7 +111,7 @@ export const getOrdersById = asyncHandler(async (req, res) => {
   // Update the order with the items containing product details
   const orderWithDetails = {
     ...order.toObject(),
-    items: orderWithProductDetails.filter((item) => item !== null)
+    items: orderWithProductDetails.filter((item) => item !== null),
   };
 
   return res
@@ -119,5 +158,3 @@ export const changeOrderStatus = asyncHandler(async (req, res) => {
       .json(new ApiResponse(500, error, "Internal Server Error"));
   }
 });
-
-export { createOrder };
